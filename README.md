@@ -1,4 +1,6 @@
 # TWRP 小米平板5 Pro系列
+本分支 `dagu-miui14-android13` 面向小米平板 5 Pro 12.4（dagu）的 MIUI Pad 14 / Android 13，包括用户提供的 `14.0.6.0(TMHCNXM)` 移植 ROM。构建配置和验证方法见 [dagu MIUI 14 适配说明](docs/dagu-miui14.md)。实机启动、触摸和密码解密仍需验证。
+
 基于[小米平板5Pro橙狐设备树](https://github.com/ymdzq/OFRP-device_xiaomi_elish)修改的TWRP设备树  
 参考了sk佬[k40 twrp设备树](https://github.com/sekaiacg/device_xiaomi_alioth-TWRP)，试图把小米平板5 Pro（elish）、小米平板5 Pro 5G（enuma）、小米平板5 Pro 12.4（dagu）、小米平板6（pipa）都放进来  
 # 目前进度

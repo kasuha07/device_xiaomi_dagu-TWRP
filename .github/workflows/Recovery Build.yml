@@ -25,19 +25,19 @@ on:
       DEVICE_TREE_BRANCH:
         description: 'TWRP Device Tree Branch'
         required: true
-        default: 'android-12.1'
+        default: 'dagu-miui14-android13'
       DEVICE_PATH:
         description: 'Specify your Device Path'
         required: true
         default: 'device/xiaomi/elish'
       DEVICE_NAME:
-        description: 'Specify your Device Codename'
+        description: 'Build output directory (all products in this tree use elish)'
         required: true
         default: 'elish'
       MAKEFILE_NAME:
         description: 'Specify your Device Makefile Name'
         required: true
-        default: 'twrp_elish'
+        default: 'twrp_dagu'
         type: choice
         options:
         - twrp_elish
