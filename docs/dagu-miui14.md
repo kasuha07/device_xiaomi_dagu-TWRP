@@ -18,7 +18,7 @@
 | metadata 密钥目录 | `/metadata/vold/metadata_encryption` | 同上 |
 | Keymaster | `4.0` | 原厂 vendor VINTF manifest 与 `android.hardware.keymaster@4.0-service-qti.rc` |
 
-`BoardConfig.mk` 和 `device.mk` 仅对 `PRODUCT_RELEASE_NAME=dagu` 应用 Android 13、F2FS、API 31 和 `PRODUCT_TARGET_VNDK_VERSION=30`，TWRP 设备版本显示为 `MIUI14-A13`。公共 fstab 的加密参数已与上述原厂参数核对；无需修改加密策略或格式化现有数据。
+`BoardConfig.mk` 和 `device.mk` 仅对 `PRODUCT_RELEASE_NAME=dagu` 应用 Android 13、F2FS、API 31 和 `PRODUCT_TARGET_VNDK_VERSION=30`，当前 TWRP 设备版本显示为 `MIUI14-A13-r3`。公共 fstab 的加密参数已与上述原厂参数核对；无需修改加密策略或格式化现有数据。
 
 `PRODUCT_TARGET_VNDK_VERSION` 是此构建体系中内核模块 `vendor_overlay` 路径的目标版本，并不改变 recovery 自身的 VNDK。TWRP 源码仍为 Android 12.1，因此本次镜像内的 SDK 和 `ro.vndk.version` 均为 `32`；不应将这些源码对应属性强制改成原厂 vendor 的 `30`。
 
@@ -28,7 +28,21 @@ dagu 设置 `ro.twrp.keymaster=4.0`，等待 QSEE listeners 就绪后仅启动 K
 
 构建继续使用本仓库原先的 TWRP `android-12.1` 源码体系。这里的 `PLATFORM_VERSION=13` 是恢复环境报告的平台版本，不会把 Android 12.1 源码或 SDK 变成 Android 13。解密依赖原 README 提及的补丁或相应修改版 recovery；本次使用现有 `ymdzq/manifest_twrp:twrp-12.1` 构建环境验证。
 
-移植 ROM 可能保留不同版本的 vendor、Keymaster 或加密策略。本次没有用户设备的 boot/vendor_boot 与 recovery 日志，不能据 ROM 版本号判定这些组件。所用修改版 TWRP 会读取设备 vendor fstab 中的 `/data`、`/metadata` 条目，因此需要保留该能力（不要设置 `TW_SKIP_ADDITIONAL_FSTAB`）。
+移植 ROM 可能保留不同版本的 vendor、Keymaster 或加密策略，不能据 ROM 版本号判定这些组件。所用修改版 TWRP 会读取设备 vendor fstab 中的 `/data`、`/metadata` 条目，因此需要保留该能力（不要设置 `TW_SKIP_ADDITIONAL_FSTAB`）。
+
+## 密码解密卡住的日志与修正
+
+首版 `MIUI14-A13` 的实机日志显示，metadata 解密已成功，`/data` 通过 `/dev/block/dm-6` 挂载，用户 0 的密码类型识别为图案。输入密码后，日志停在 synthetic password 的 secdiscardable 分支；尚无用户 CE 解密成功记录。
+
+同一时段 QSEE 的 `DrmLibFs` listener 连续报告 `mkdir(/mnt/vendor/persist)` 失败（`errno 13`）与 `file_open failed`，共约 3.1 万条。ramdisk 的 GP FS 配置指向 `/mnt/vendor/persist/data/`，但 recovery 将 persist 挂载到 `/persist`，没有建立对应路径。`r2` 在启动 QSEE 前创建 `/mnt/vendor/persist -> /persist`；`/mnt` 是 init 挂载的 tmpfs，因此该链接必须由 init 在运行时建立，不能仅放进 ramdisk。
+
+内核还记录了 firmware、bluetooth 和 spunvm 挂载时的无效 SELinux context。`twrp.flags` 错将 fs_mgr 的 `wait` 写进 `fsflags`，且所用 vendor 专属标签不在当前 recovery 的 policy 中。`r2` 移除 `fsflags` 中的 `wait`，并将这三类 VFAT 挂载的 context 改为 recovery policy 中已有的 `u:object_r:vendor_file:s0`，保留读写模式与 UID/GID。此处修改仅作用于 recovery 自己的 fstab。
+
+大量 `/data/data/…` 路径报红出现在输入密码前的目录大小扫描阶段，当时 CE 尚未解密；不能仅凭这些报错判断数据损坏。用户反馈 `r2` 的目录红字明显减少，但密码验证仍卡住。
+
+`r2` 实机日志进一步确认：路径映射已存在，但密码验证卡住时 `/proc/mounts` 中没有 persist，`/persist` 是 rootfs 上的空目录。QSEE 的报错也从 `/mnt/vendor/persist` 变为 `/mnt/vendor/persist/data`（仍为 `errno 13`）。TWRP 只在读取时钟偏移或设置时临时挂载 persist，用完后会卸载；仅补上路径映射不足以支持密码验证。
+
+`r3` 在 `/persist` 的 `twrp.flags` 条目添加 `mounttodecrypt`。当前 recovery 的 `TWPartitionManager::Decrypt_Device` 会在调用用户解密前挂载带此标志的分区，FBE 分支返回时保留该挂载。无需改变 persist 权限、创建空的安全存储目录或修改加密参数。用户初步反馈 `r3` 可正常解密；该反馈对应本文所述 dagu 与移植 ROM，尚未归档解密成功的日志。
 
 ## 构建
 
@@ -50,7 +64,11 @@ mka adbd bootimage
 
 `twrp_dagu-eng` 的 `adbd bootimage` 构建通过。已解包最终镜像，核对 header v3、128 MiB 大小、Android 13 平台标识、dagu 属性、首发 API 31、Keymaster 4.0 声明、fstab、设备版本字符串，以及内核和 exfat 模块的版本匹配；AVB footer 与镜像 SHA-256 哈希校验通过。其他三个产品的 Make 配置分支和 recovery XML 静态检查通过，未进行其他产品的完整构建。
 
-上述结果不包含实机启动、触摸、MTP 或锁屏密码解密测试。
+`r2` 增量构建及最终镜像检查通过：确认 persist 路径映射在启动 QSEE 前建立，挂载标签通过镜像内 SELinux policy 校验，`/data`、`/metadata` 条目与首版完全相同。
+
+`r3` 增量构建及最终镜像检查通过，新增核对打包后的 `/persist` 条目含 `mounttodecrypt`，并检查本次 recovery 源码中先挂载、后验证密码的调用顺序。镜像 AVB footer 与 SHA-256 哈希校验通过。
+
+首版和 `r2` 已有实机启动与解密日志，确认 metadata 解密成功，但锁屏密码解密卡住。`r2` 的挂载信息用于定位上述 persist 未挂载的问题；用户已初步反馈 `r3` 可正常解密。
 
 ## 实机验证
 
@@ -66,7 +84,10 @@ fastboot boot out/target/product/elish/boot.img
 
 ```bash
 adb pull /tmp/recovery.log
+adb logcat -b all -d > dagu-recovery-logcat.txt
 adb shell getprop > dagu-recovery-properties.txt
+adb shell 'ls -ld /mnt/vendor /mnt/vendor/persist /persist' > dagu-persist-paths.txt
+adb shell 'cat /proc/mounts' > dagu-recovery-mounts.txt
 adb shell 'cat /vendor/etc/fstab.qcom' > dagu-vendor-fstab.txt
 adb shell 'cat /etc/additional.fstab' > dagu-additional-fstab.txt
 adb shell 'ls -l /dev/block/bootdevice/by-name' > dagu-partitions.txt

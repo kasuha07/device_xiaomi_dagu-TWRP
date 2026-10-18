@@ -40,6 +40,10 @@ on fs
     install_keyring
 
 on init
+    # QSEE's secure-storage listener uses the Android vendor mount path.
+    # /mnt is a tmpfs; create the alias at runtime before starting QSEE.
+    mkdir /mnt/vendor 0755 root root
+    symlink /persist /mnt/vendor/persist
     start vendor.qseecomd
     start boot-hal-1-1
 

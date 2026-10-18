@@ -30,18 +30,19 @@
 # Persistent Firmware & Properties
 /cust               ext4     /dev/block/bootdevice/by-name/cust              flags=display="Cust"
 /cust_image         emmc     /dev/block/bootdevice/by-name/cust              flags=display="Cust";backup=1
-/persist            ext4     /dev/block/bootdevice/by-name/persist           flags=display="Persist"
+# The QSEE listener needs persist mounted while verifying the lock credential.
+/persist            ext4     /dev/block/bootdevice/by-name/persist           flags=display="Persist";mounttodecrypt
 /persist_image      emmc     /dev/block/bootdevice/by-name/persist           flags=display="Persist";backup=1
 
 # Firmware partitions
-/bluetooth          vfat     /dev/block/bootdevice/by-name/bluetooth         flags=display="Bluetooth";slotselect;fsflags="ro,shortname=lower,uid=1002,gid=3002,dmask=227,fmask=337,context=u:object_r:bt_firmware_file:s0 wait"
+/bluetooth          vfat     /dev/block/bootdevice/by-name/bluetooth         flags=display="Bluetooth";slotselect;fsflags="ro,shortname=lower,uid=1002,gid=3002,dmask=227,fmask=337,context=u:object_r:vendor_file:s0"
 /bluetooth_image    emmc     /dev/block/bootdevice/by-name/bluetooth         flags=display="Bluetooth";backup=1;slotselect
 /dsp                ext4     /dev/block/bootdevice/by-name/dsp               flags=display="DSP";slotselect
 /dsp_image          emmc     /dev/block/bootdevice/by-name/dsp               flags=display="DSP";backup=1;slotselect
-/modem              vfat     /dev/block/bootdevice/by-name/modem             flags=display="Modem";slotselect;fsflags="ro,shortname=lower,uid=1000,gid=1000,dmask=227,fmask=337,context=u:object_r:firmware_file:s0 wait"
+/modem              vfat     /dev/block/bootdevice/by-name/modem             flags=display="Modem";slotselect;fsflags="ro,shortname=lower,uid=1000,gid=1000,dmask=227,fmask=337,context=u:object_r:vendor_file:s0"
 /modem_img          emmc     /dev/block/bootdevice/by-name/modem             flags=display="Modem";backup=1;slotselect
 /devcfg             emmc     /dev/block/bootdevice/by-name/devcfg            flags=display="Devcfg";backup=1
-/spunvm             vfat     /dev/block/bootdevice/by-name/spunvm            flags=display="Spunvm";backup=1;fsflags="rw,noatime,shortname=lower,uid=1000,gid=1000,dmask=007,fmask=007,context=u:object_r:spunvm_file:s0 wait"
+/spunvm             vfat     /dev/block/bootdevice/by-name/spunvm            flags=display="Spunvm";backup=1;fsflags="rw,noatime,shortname=lower,uid=1000,gid=1000,dmask=007,fmask=007,context=u:object_r:vendor_file:s0"
 
 # EFS partitions
 /efs1               emmc     /dev/block/bootdevice/by-name/modemst1          flags=display="EFS";backup=1
