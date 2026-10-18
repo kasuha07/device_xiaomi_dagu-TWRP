@@ -1,11 +1,11 @@
 # TWRP for Xiaomi Pad 5 Pro 12.4 · dagu
 
-[![Release CI](https://github.com/kasuha07/device_xiaomi_elish-TWRP/actions/workflows/release.yml/badge.svg?branch=dagu-miui14-android13)](https://github.com/kasuha07/device_xiaomi_elish-TWRP/actions/workflows/release.yml)
+[![Release CI](https://github.com/kasuha07/device_xiaomi_dagu-TWRP/actions/workflows/release.yml/badge.svg?branch=dagu-miui14-android13)](https://github.com/kasuha07/device_xiaomi_dagu-TWRP/actions/workflows/release.yml)
 
 面向小米平板 5 Pro 12.4（`dagu`）的非官方 TWRP 设备树，适配 **MIUI Pad 14 / Android 13**。默认分支为 `dagu-miui14-android13`，当前设备版本为 `MIUI14-A13-r3`。
 
-- [下载 Release](https://github.com/kasuha07/device_xiaomi_elish-TWRP/releases)
-- [构建与发布记录](https://github.com/kasuha07/device_xiaomi_elish-TWRP/actions/workflows/release.yml)
+- [下载 Release](https://github.com/kasuha07/device_xiaomi_dagu-TWRP/releases)
+- [构建与发布记录](https://github.com/kasuha07/device_xiaomi_dagu-TWRP/actions/workflows/release.yml)
 - [适配依据、解密修正与日志采集](docs/dagu-miui14.md)
 
 ## 兼容性与验证
@@ -25,7 +25,7 @@ r3 为高通 QSEE 安全存储建立 `/mnt/vendor/persist -> /persist`，并在�
 
 ## 下载与使用
 
-从[本仓库 Releases](https://github.com/kasuha07/device_xiaomi_elish-TWRP/releases) 下载 `boot.img` 和 `SHA256SUMS`。尚未发布版本时，可以在成功的 Actions 运行中下载构建产物。
+从[本仓库 Releases](https://github.com/kasuha07/device_xiaomi_dagu-TWRP/releases) 下载 `boot.img` 和 `SHA256SUMS`。尚未发布版本时，可以在成功的 Actions 运行中下载构建产物。
 
 Linux 下可在下载目录校验：
 
@@ -49,7 +49,7 @@ fastboot boot boot.img
 
 两种使用方式：
 
-1. **手动构建**：进入 [Actions → Dagu Release](https://github.com/kasuha07/device_xiaomi_elish-TWRP/actions/workflows/release.yml)，选择 `dagu-miui14-android13` 并运行。`release_tag` 留空时只上传 Actions 产物；填写 `dagu-miui14-a13-…` 标签时创建 Release，可通过 `prerelease` 选择预发布。
+1. **手动构建**：进入 [Actions → Dagu Release](https://github.com/kasuha07/device_xiaomi_dagu-TWRP/actions/workflows/release.yml)，选择 `dagu-miui14-android13` 并运行。`release_tag` 留空时只上传 Actions 产物；填写 `dagu-miui14-a13-…` 标签时创建 Release，可通过 `prerelease` 选择预发布。
 2. **标签发布**：向本仓库推送 `dagu-miui14-a13-*` 标签，自动构建该标签对应提交并创建正式 Release。例如：
 
 ```bash
@@ -69,11 +69,11 @@ git push github dagu-miui14-a13-r3
 mkdir -p ~/twrp-dagu
 cd ~/twrp-dagu
 repo init --depth=1 \
-  -u https://github.com/kasuha07/device_xiaomi_elish-TWRP.git \
+  -u https://github.com/kasuha07/device_xiaomi_dagu-TWRP.git \
   -b dagu-miui14-android13 -m ci/manifest.xml
 repo sync -c --no-clone-bundle --no-tags -j4
 git clone --branch dagu-miui14-android13 \
-  https://github.com/kasuha07/device_xiaomi_elish-TWRP.git device/xiaomi/elish
+  https://github.com/kasuha07/device_xiaomi_dagu-TWRP.git device/xiaomi/elish
 export ALLOW_MISSING_DEPENDENCIES=true
 source build/envsetup.sh
 lunch twrp_dagu-eng

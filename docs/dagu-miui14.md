@@ -50,7 +50,7 @@ dagu 设置 `ro.twrp.keymaster=4.0`，等待 QSEE listeners 就绪后仅启动 K
 
 ```bash
 cd <TWRP 源码目录>
-git clone --branch dagu-miui14-android13 https://github.com/kasuha07/device_xiaomi_elish-TWRP.git device/xiaomi/elish
+git clone --branch dagu-miui14-android13 https://github.com/kasuha07/device_xiaomi_dagu-TWRP.git device/xiaomi/elish
 source build/envsetup.sh
 lunch twrp_dagu-eng
 mka adbd bootimage
