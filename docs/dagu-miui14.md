@@ -50,13 +50,13 @@ dagu 设置 `ro.twrp.keymaster=4.0`，等待 QSEE listeners 就绪后仅启动 K
 
 ```bash
 cd <TWRP 源码目录>
-git clone --branch dagu-miui14-android13 <本分支所在仓库 URL> device/xiaomi/elish
+git clone --branch dagu-miui14-android13 https://github.com/kasuha07/device_xiaomi_elish-TWRP.git device/xiaomi/elish
 source build/envsetup.sh
 lunch twrp_dagu-eng
 mka adbd bootimage
 ```
 
-输出文件为 `out/target/product/elish/boot.img`。本分支已调整云编译默认值为 `twrp_dagu`，产物目录仍为 `elish`。远程构建前须先将本分支推送到配置的设备树仓库。
+输出文件为 `out/target/product/elish/boot.img`。本仓库的 `Dagu Release` 工作流仅构建 `twrp_dagu`，产物目录仍为 `elish`；源码由 `ci/manifest.xml` 固定，设备树来自触发工作流的本仓库提交。手动构建和标签发布方法见 [README](../README.md#release-ci)。
 
 原有 Magisk 打包步骤需要下载并校验预编译包。本分支已在 `BoardConfig.mk` 中声明 `BUILD_BROKEN_USES_NETWORK := true`，无需再对构建副本单独打补丁；该步骤仍需要可访问下载源的网络。
 

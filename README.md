@@ -1,52 +1,90 @@
-# TWRP 小米平板5 Pro系列
-本分支 `dagu-miui14-android13` 面向小米平板 5 Pro 12.4（dagu）的 MIUI Pad 14 / Android 13，包括用户提供的 `14.0.6.0(TMHCNXM)` 移植 ROM。构建配置和验证方法见 [dagu MIUI 14 适配说明](docs/dagu-miui14.md)。实机启动、触摸和密码解密仍需验证。
+# TWRP for Xiaomi Pad 5 Pro 12.4 · dagu
 
-基于[小米平板5Pro橙狐设备树](https://github.com/ymdzq/OFRP-device_xiaomi_elish)修改的TWRP设备树  
-参考了sk佬[k40 twrp设备树](https://github.com/sekaiacg/device_xiaomi_alioth-TWRP)，试图把小米平板5 Pro（elish）、小米平板5 Pro 5G（enuma）、小米平板5 Pro 12.4（dagu）、小米平板6（pipa）都放进来  
-# 目前进度
-elish基本功能可用，解密安卓14澎湃OS1.0的data分区正常(理论上支持安卓15未测试)，触摸控制正常，并且可以正常刷入HyperOS完整包  
-enuma、dagu基本功能可用，pipa无设备所以未测试  
-# 如何使用
-进入[Release](https://github.com/ymdzq/device_xiaomi_elish-TWRP/releases)中，根据标题上的twrp_elish、twrp_enuma、twrp_dagu、twrp_pipa区分机型，点开Assets选项，点击boot.img文件名下载  
-需要平板连接电脑线刷，请自备[fastboot工具](https://developer.android.google.cn/studio/releases/platform-tools?hl=zh-cn)  
-也可以使用已root手机通过甲壳虫adb助手等app使用c to c数据线otg刷机，  
-手动重启平板至bootloader模式（橙色fastboot字样）  
-使用fastboot工具临时启动boot镜像进入rec，命令：  
+[![Release CI](https://github.com/kasuha07/device_xiaomi_elish-TWRP/actions/workflows/release.yml/badge.svg?branch=dagu-miui14-android13)](https://github.com/kasuha07/device_xiaomi_elish-TWRP/actions/workflows/release.yml)
+
+面向小米平板 5 Pro 12.4（`dagu`）的非官方 TWRP 设备树，适配 **MIUI Pad 14 / Android 13**。默认分支为 `dagu-miui14-android13`，当前设备版本为 `MIUI14-A13-r3`。
+
+- [下载 Release](https://github.com/kasuha07/device_xiaomi_elish-TWRP/releases)
+- [构建与发布记录](https://github.com/kasuha07/device_xiaomi_elish-TWRP/actions/workflows/release.yml)
+- [适配依据、解密修正与日志采集](docs/dagu-miui14.md)
+
+## 兼容性与验证
+
+目标硬件是 **dagu**。目前收到的实机反馈来自 `MIUI Pad 14.0.6.0(TMHCNXM)` Android 13 移植 ROM；该版本号不是 dagu 原厂 ROM 标识。
+
+| 项目 | 当前结果 |
+| --- | --- |
+| 启动并进入 TWRP | 已收到实机日志 |
+| `/data` metadata 解密 | 日志确认成功 |
+| 原锁屏图案解密 | 用户初步反馈 r3 可正常解密 |
+| 备份恢复、MTP、刷入完整 ROM | 尚未完成验证 |
+
+r3 为高通 QSEE 安全存储建立 `/mnt/vendor/persist -> /persist`，并在密码验证前挂载 persist，修正此前输入图案后解密一直转圈的问题；同时修正固件分区的挂载参数。保留现有 FBE / metadata 加密参数，无需格式化数据。
+
+本分支基于 TWRP Android 12.1 源码体系构建，报告的平台版本为 Android 13。设备树保留 elish、enuma、pipa 的构建入口；本分支的 Release CI 只构建 dagu，其他机型的说明见[上游仓库](https://github.com/ymdzq/device_xiaomi_elish-TWRP)。
+
+## 下载与使用
+
+从[本仓库 Releases](https://github.com/kasuha07/device_xiaomi_elish-TWRP/releases) 下载 `boot.img` 和 `SHA256SUMS`。尚未发布版本时，可以在成功的 Actions 运行中下载构建产物。
+
+Linux 下可在下载目录校验：
+
+```bash
+sha256sum --ignore-missing -c SHA256SUMS
+```
+
+使用 [Android Platform Tools](https://developer.android.com/tools/releases/platform-tools)，将设备重启到 fastboot 后先临时启动：
+
 ```bash
 fastboot boot boot.img
 ```
-（禁止刷入boot分区，因为会导致你无限进入recovery，无法正常进入系统）  
-临时启动成功之后，可以通过“高级”>“刷入当前的TWRP”>滑动滑块确认，把TWRP固化进boot分区，替换掉官方recovery，  
-也可以通过“安装recovery ramdisk”选择保存在内置存储上的boot.img来完成其他版本的rec固化，  
-固化会替换掉当前的ramdisk，所以magisk的root权限会掉，  
-需要刷入magisk的zip重新root，  
-或者备份当前boot之后用备份出来的boot文件重新修补root，即可实TWRP、magisk共存。  
-apatch不受固化影响，安装顺序不分先后。  
-# 如何构建
-下载TWRP源代码，然后用repopick给TWRP源代码打上7679..7683系列补丁，  
-偷懒可以直接用[skkk修改的twrp](https://github.com/sekaiacg/twrp_recovery)或者[余空修改的twrp](https://github.com/YuKongA/android_bootable_recovery)替换~/twrp/bootable/recovery文件夹，  
-克隆这个仓库放到相应的位置  
-例如TWRP源代码根目录为~/twrp，则保存为~/twrp/device/xiaomi/elish/:  
+
+进入 TWRP 后输入原锁屏图案，检查内部存储和 `/data/media/0`。**不要使用 `fastboot flash boot boot.img` 刷入这个完整镜像**：该镜像用于启动 recovery，直接替换 boot 会影响正常启动系统。
+
+需要固化时，在验证临时启动可用后使用 TWRP 的“高级 → 刷入当前的 TWRP”，或“安装 recovery ramdisk”功能。安装会修改 boot ramdisk；使用 Magisk 的设备可能需要重新修补 root。
+
+## Release CI
+
+工作流使用 `ci/manifest.xml` 固定 TWRP 各源码仓库的提交，来自 r3 已编译验证的源码快照。设备树取自触发工作流的本仓库提交，不再从上游克隆可能变化的分支。
+
+两种使用方式：
+
+1. **手动构建**：进入 [Actions → Dagu Release](https://github.com/kasuha07/device_xiaomi_elish-TWRP/actions/workflows/release.yml)，选择 `dagu-miui14-android13` 并运行。`release_tag` 留空时只上传 Actions 产物；填写 `dagu-miui14-a13-…` 标签时创建 Release，可通过 `prerelease` 选择预发布。
+2. **标签发布**：向本仓库推送 `dagu-miui14-a13-*` 标签，自动构建该标签对应提交并创建正式 Release。例如：
+
 ```bash
-cd ~/twrp
-mkdir -p device/xiaomi
-cd device/xiaomi
-git clone https://github.com/ymdzq/device_xiaomi_elish-TWRP.git elish
+git tag dagu-miui14-a13-r3
+git push github dagu-miui14-a13-r3
 ```
-打开源代码根目录按设备选择运行:  
-小米平板5Pro（elish）  
+
+镜像通过设备标识、版本、分区大小、Keymaster、persist 解密挂载配置、内核与模块匹配及 AVB 哈希检查后才会发布。产物包含 `boot.img`、`SHA256SUMS`、`build-info.json`、`manifest.xml` 和构建日志。自动构建不会替代实机验证。
+
+发布使用 GitHub Actions 自带的 `GITHUB_TOKEN`，无需另外添加 PAT secret。仓库需要启用 Actions；工作流为发布任务声明 `contents: write`。
+
+## 本地构建
+
+在 Linux 上安装 Android 构建依赖和 [repo](https://source.android.com/docs/setup/reference/repo)。使用与 CI 一致的源码快照：
+
 ```bash
-. build/envsetup.sh && lunch twrp_elish-eng && mka bootimage
+mkdir -p ~/twrp-dagu
+cd ~/twrp-dagu
+repo init --depth=1 \
+  -u https://github.com/kasuha07/device_xiaomi_elish-TWRP.git \
+  -b dagu-miui14-android13 -m ci/manifest.xml
+repo sync -c --no-clone-bundle --no-tags -j4
+git clone --branch dagu-miui14-android13 \
+  https://github.com/kasuha07/device_xiaomi_elish-TWRP.git device/xiaomi/elish
+export ALLOW_MISSING_DEPENDENCIES=true
+source build/envsetup.sh
+lunch twrp_dagu-eng
+mka adbd bootimage -j"$(nproc)"
 ```
-小米平板5Pro 5G（enuma）  
-```bash
-. build/envsetup.sh && lunch twrp_enuma-eng && mka bootimage
-```
-小米平板5Pro 12.4（dagu）  
-```bash
-. build/envsetup.sh && lunch twrp_dagu-eng && mka bootimage
-```
-小米平板6（pipa）  
-```bash
-. build/envsetup.sh && lunch twrp_pipa-eng && mka bootimage
-```
+
+输出为 `out/target/product/elish/boot.img`。`elish` 是公共设备树的输出目录名，`twrp_dagu-eng` 决定构建 dagu 镜像。构建中的 Magisk 打包步骤需要网络。
+
+## 致谢
+
+- [上游 TWRP 设备树 · ymdzq](https://github.com/ymdzq/device_xiaomi_elish-TWRP)
+- [小米平板 5 Pro OrangeFox 设备树](https://github.com/ymdzq/OFRP-device_xiaomi_elish)
+- [sekaiacg / skkk](https://github.com/sekaiacg/device_xiaomi_alioth-TWRP)
+- [TeamWin](https://github.com/TeamWin)、本次使用的 [SK_Recovery](https://github.com/ymdzq/SK_Recovery) 及各依赖仓库贡献者

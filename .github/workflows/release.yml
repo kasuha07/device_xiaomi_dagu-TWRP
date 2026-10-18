@@ -1,0 +1,183 @@
+name: Dagu Release
+run-name: Dagu MIUI 14 / Android 13 · ${{ github.ref_name }} · ${{ github.actor }}
+
+on:
+  push:
+    tags:
+      - 'dagu-miui14-a13-*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag (dagu-miui14-a13-*); leave empty to build artifacts only'
+        required: false
+        default: ''
+        type: string
+      prerelease:
+        description: 'Mark a manually requested Release as a prerelease'
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dagu-release-${{ github.ref }}-${{ inputs.release_tag }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build and validate dagu
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+    env:
+      BUILD_ROOT: ${{ github.workspace }}/../twrp
+      DIST_DIR: ${{ github.workspace }}/../dist
+      CCACHE_DIR: ${{ github.workspace }}/../ccache
+    outputs:
+      release_tag: ${{ steps.release.outputs.tag }}
+    steps:
+      - name: Checkout the triggering commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate release tag
+        id: release
+        env:
+          REQUESTED_TAG: ${{ inputs.release_tag }}
+        run: |
+          tag=$REQUESTED_TAG
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            tag=$GITHUB_REF_NAME
+          fi
+          if [[ -n "$tag" ]]; then
+            [[ "$tag" =~ ^dagu-miui14-a13-[A-Za-z0-9][A-Za-z0-9._-]*$ ]]
+            git check-ref-format "refs/tags/$tag"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare hosted runner
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /usr/share/swift \
+            /opt/ghc /opt/hostedtoolcache
+          sudo docker image prune --all --force
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bc bison build-essential ccache curl flex g++-multilib gcc-multilib \
+            git lib32z1-dev libelf-dev liblz4-tool libncurses5 libssl-dev \
+            libxml2-utils lzop python-is-python3 rsync unzip zip zlib1g-dev
+          sudo apt-get clean
+          sudo fallocate -l 8G /mnt/twrp.swap
+          sudo chmod 600 /mnt/twrp.swap
+          sudo mkswap /mnt/twrp.swap
+          sudo swapon /mnt/twrp.swap
+          mkdir -p "$RUNNER_TEMP/bin" "$BUILD_ROOT" "$DIST_DIR"
+          curl --fail --location --retry 3 \
+            https://storage.googleapis.com/git-repo-downloads/repo \
+            --output "$RUNNER_TEMP/bin/repo"
+          chmod +x "$RUNNER_TEMP/bin/repo"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          df -h
+
+      - name: Restore compiler cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: dagu-ccache-${{ runner.os }}-${{ hashFiles('ci/manifest.xml') }}-${{ github.sha }}
+          restore-keys: |
+            dagu-ccache-${{ runner.os }}-${{ hashFiles('ci/manifest.xml') }}-
+
+      - name: Sync pinned TWRP sources
+        working-directory: ${{ env.BUILD_ROOT }}
+        run: |
+          repo init --depth=1 --no-clone-bundle --no-tags --no-use-superproject \
+            -u "https://github.com/$GITHUB_REPOSITORY.git" -b "$GITHUB_SHA" \
+            -m ci/manifest.xml
+          synced=false
+          for attempt in 1 2 3; do
+            if repo sync -c --optimized-fetch --no-clone-bundle --no-tags --fail-fast -j4; then
+              synced=true
+              break
+            fi
+            sleep "$((attempt * 10))"
+          done
+          [[ "$synced" == true ]]
+          repo manifest -r -o "$DIST_DIR/manifest.xml"
+          mkdir -p device/xiaomi/elish
+          git -C "$GITHUB_WORKSPACE" archive HEAD | tar -x -C device/xiaomi/elish
+
+      - name: Build boot image
+        run: |
+          bash ci/build-dagu.sh "$BUILD_ROOT" 2>&1 | tee "$DIST_DIR/build.log"
+
+      - name: Validate and package image
+        run: |
+          python3 ci/package-release.py \
+            --image "$BUILD_ROOT/out/target/product/elish/boot.img" \
+            --device-tree "$GITHUB_WORKSPACE" --output "$DIST_DIR" \
+            --checkfc "$BUILD_ROOT/out/host/linux-x86/bin/checkfc" \
+            --avbtool "$BUILD_ROOT/out/host/linux-x86/bin/avbtool"
+          cd "$DIST_DIR"
+          sha256sum -c SHA256SUMS
+
+      - name: Upload image and build diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dagu-miui14-a13-${{ github.sha }}
+          path: ${{ env.DIST_DIR }}/
+          if-no-files-found: warn
+          retention-days: 30
+          compression-level: 1
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: needs.build.outputs.release_tag != ''
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ needs.build.outputs.release_tag }}
+      PRERELEASE: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
+    steps:
+      - name: Download verified build
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dagu-miui14-a13-${{ github.sha }}
+          path: dist
+
+      - name: Verify provenance and publish
+        working-directory: dist
+        run: |
+          sha256sum -c SHA256SUMS
+          python3 - <<'PY'
+          import json, os
+          info = json.load(open('build-info.json'))
+          assert info['device'] == 'dagu'
+          assert info['device_tree_commit'] == os.environ['GITHUB_SHA']
+          PY
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" > /dev/null 2>&1; then
+            tagged_commit=$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq .sha)
+            [[ "$tagged_commit" == "$GITHUB_SHA" ]]
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f "ref=refs/tags/$RELEASE_TAG" -f "sha=$GITHUB_SHA"
+          fi
+          options=()
+          if [[ "$PRERELEASE" == true ]]; then
+            options+=(--prerelease)
+          fi
+          gh release create "$RELEASE_TAG" ./* \
+            --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "TWRP dagu · $RELEASE_TAG" --notes-file RELEASE_NOTES.md \
+            "${options[@]}"
