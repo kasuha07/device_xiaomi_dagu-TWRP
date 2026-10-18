@@ -35,9 +35,10 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 180
     env:
-      BUILD_ROOT: ${{ github.workspace }}/../twrp
-      DIST_DIR: ${{ github.workspace }}/../dist
-      CCACHE_DIR: ${{ github.workspace }}/../ccache
+      BUILD_ROOT: ${{ github.workspace }}/twrp
+      DIST_DIR: ${{ github.workspace }}/dist
+      # Android's nsjail mounts the source tree writable; sibling paths are read-only.
+      CCACHE_DIR: ${{ github.workspace }}/twrp/.ccache
     outputs:
       release_tag: ${{ steps.release.outputs.tag }}
     steps:
